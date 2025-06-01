@@ -1,0 +1,80 @@
+MPASM 01.40 Released           TIMER1.ASM   12-31-1997  17:52:03         PAGE  1
+
+                          MPASM Cross Reference File
+
+LABEL                            TYPE FILE NAME    SOURCE FILE REFERENCES
+-----                            ---- ---------    ----------------------
+
+C                                 C   TIMER1.ASM      31*
+DC                                C   TIMER1.ASM      32*
+F                                 C   TIMER1.ASM      40*
+FLAGS                             C   TIMER1.ASM      46*   77.
+FSR                               C   TIMER1.ASM      23*  228.  235.
+IND0                              C   TIMER1.ASM      19*  236.
+INTCON                            C   TIMER1.ASM      24*   57.
+MIN                               C   TIMER1.ASM      52*   83.   99.  128.  130.  133.  177.  201.  203.  207.  219.  222.
+OPTREG                            C   TIMER1.ASM      26*
+PA0                               C   TIMER1.ASM      36*
+PA1                               C   TIMER1.ASM      37*
+PA2                               C   TIMER1.ASM      38*
+PC                                C   TIMER1.ASM      21*  243.
+PD                                C   TIMER1.ASM      34*
+Port_A                            C   TIMER1.ASM      28*   58.   70.   76.   90.   92.  102.  106.  110.  116.  181.  231.  233.
+                                                     234.
+Port_B                            C   TIMER1.ASM      29*   59.   72.  118.  138.  230.  238.
+RTCCS                             C   TIMER1.ASM      45*   85.  161.  166.  173.
+RTTC                              C   TIMER1.ASM      20*   86.  160.  165.  172.
+SEC                               C   TIMER1.ASM      50*   81.   97.  175.  185.  187.  191.  224.
+STATUS                            C   TIMER1.ASM      22*  101.  126.  131.  146.  151.  162.  168.  179.  188.  196.  204.  220.
+SW1                               C   TIMER1.ASM      48*   79.  120.  122.  123.  135.  145.
+SW2                               C   TIMER1.ASM      49*   80.  125.  140.  142.  143.  156.
+TMIN                              C   TIMER1.ASM      53*   84.  100.  148.  150.  153.  178.  209.  218.
+TO                                C   TIMER1.ASM      35*
+TRAY                              C   TIMER1.ASM      47*   78.   94.   95.  104.  108.  109.  112.
+TSEC                              C   TIMER1.ASM      51*   82.   98.  176.  193.  195.  199.
+W                                 C   TIMER1.ASM      41*
+Z                                 C   TIMER1.ASM      33*  101.  126.  131.  146.  151.  162.  168.  179.  188.  196.  204.  220.
+__16C84                           V   TIMER1.ASM       1*
+decm                              A   TIMER1.ASM     201*
+decsec                            A   TIMER1.ASM     180.  185*
+dectm                             A   TIMER1.ASM     209*
+dects                             A   TIMER1.ASM     193*
+display                           A   TIMER1.ASM     223.  227*
+dispsec                           A   TIMER1.ASM     221.  224*
+dtime                             A   TIMER1.ASM     169.  182.  189.  197.  205.  218*
+l20                               A   TIMER1.ASM     172*
+l43                               A   TIMER1.ASM     237.  242*
+main                              A   TIMER1.ASM      89*  163.  239.
+start                             A   TIMER1.ASM      56*  127.  147.
+swi1                              A   TIMER1.ASM     119.  135*
+swi2                              A   TIMER1.ASM     117.  138*
+swi3                              A   TIMER1.ASM     139.  156*
+swi4                              A   TIMER1.ASM     134.  148*
+switch                            A   TIMER1.ASM     116*
+swout                             A   TIMER1.ASM     121.  124.  132.  136.  141.  144.  152.  154.  157.  158*
+tray1                             A   TIMER1.ASM      90*
+tray2                             A   TIMER1.ASM      93.  104*
+tray3                             A   TIMER1.ASM      91.  106*
+tray4                             A   TIMER1.ASM     107.  112*
+trayx                             A   TIMER1.ASM      96.  103.  105.  111.  113*
+MPASM 01.40 Released           TIMER1.ASM   12-31-1997  17:52:03         PAGE  2
+
+                          MPASM Cross Reference File
+
+LABEL                            TYPE FILE NAME    SOURCE FILE REFERENCES
+-----                            ---- ---------    ----------------------
+
+
+
+LABEL TYPES
+-----------
+A  Address 
+C  Constant
+E  External
+G  Global  
+L  Local   
+M  Macro   
+S  Segment 
+U  Unknown 
+V  Variable
+X  Other   

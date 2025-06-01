@@ -1,0 +1,49 @@
+MPASM 01.40 Released            TIMER.ASM   12-30-1997  15:37:32         PAGE  1
+
+                          MPASM Cross Reference File
+
+LABEL                            TYPE FILE NAME    SOURCE FILE REFERENCES
+-----                            ---- ---------    ----------------------
+
+C                                 C   TIMER.ASM       29*
+DC                                C   TIMER.ASM       30*
+F                                 C   TIMER.ASM       38*
+FSR                               C   TIMER.ASM       22*
+OPTREG                            C   TIMER.ASM       24*   49.
+PA0                               C   TIMER.ASM       34*   47.   54.
+PA1                               C   TIMER.ASM       35*
+PA2                               C   TIMER.ASM       36*
+PC                                C   TIMER.ASM       20*  132.
+PD                                C   TIMER.ASM       32*
+Port_A                            C   TIMER.ASM       26*   45.   51.   55.   90.   92.  117.  119.  120.
+Port_B                            C   TIMER.ASM       27*   46.   52.   53.  116.  123.  127.
+RTTC                              C   TIMER.ASM       19*   65.   68.   74.   81.
+STATUS                            C   TIMER.ASM       21*   47.   54.   70.   77.   84.  100.
+TO                                C   TIMER.ASM       33*
+W                                 C   TIMER.ASM       39*
+Z                                 C   TIMER.ASM       31*   70.   77.   84.  100.
+__16C84                           V   TIMER.ASM        1*
+l17                               A   TIMER.ASM       68*   71.  128.
+l20                               A   TIMER.ASM       81*
+l25                               A   TIMER.ASM       88*
+l2b                               A   TIMER.ASM       85.   96*
+l2c                               A   TIMER.ASM       93.   99*
+l30                               A   TIMER.ASM      101.  107*
+l36                               A   TIMER.ASM       78.  115*
+l40                               A   TIMER.ASM      121.  126*
+l42                               A   TIMER.ASM      124.  128*
+l43                               A   TIMER.ASM      108.  111.  131*
+
+
+LABEL TYPES
+-----------
+A  Address 
+C  Constant
+E  External
+G  Global  
+L  Local   
+M  Macro   
+S  Segment 
+U  Unknown 
+V  Variable
+X  Other   

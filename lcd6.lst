@@ -1,0 +1,671 @@
+MPASM 02.15 Released             LCD6.ASM   6-15-1998  18:07:31         PAGE  1
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                    00001         LIST    p=PIC16C84
+                    00002 
+  00000000          00003 ind0    equ     00h             ; index register
+  00000002          00004 pcl     equ     02h             ; program counter low byte
+  00000003          00005 status  equ     03h             ; status register
+  00000004          00006 fsr     equ     04h             ; file select register
+  00000005          00007 porta   equ     05h             ; port A
+  00000006          00008 lcd     equ     06h             ; port B
+  0000000B          00009 intcon  equ     0bh             ; interrupt control register
+  0000000C          00010 rc      equ     0ch             ; scratch register C
+  0000000D          00011 rd      equ     0dh             ; scratch register D
+  0000000E          00012 re      equ     0eh             ; scratch register E
+  0000000F          00013 rf      equ     0fh             ; scratch register F
+  00000010          00014 rg      equ     10h             ; scratch register 10
+  00000011          00015 rh      equ     11h             ; scratch register 11
+  0000001F          00016 romptr  equ     1fh             ; pointer to Eprom location
+  00000022          00017 IRcode  equ     22h             ; location of IR code in RAM
+  00000001          00018 opt     equ     01h             ; option register
+  00000005          00019 rp0     equ     5
+  00000000          00020 W       equ     0               ; W is destination
+  00000001          00021 f       equ     1               ; f is destination
+                    00022 
+  00000007          00023 ROM_DTA equ     07h             ; EPROM data I/O bit
+  00000002          00024 ROM_CLK equ     02h             ; EPROM clock bit
+  00000000          00025 ROM_CS  equ     00h             ; EPROM enable bit, active high
+                    00026 
+                    00027 
+  000000B8          00028 IRSlong equ     0b8h             ; long sync pulse decimal length 9ms
+  00000058          00029 IRSshor equ     58h              ; short sync pulse 4 ms
+  0000000C          00030 IRDpuls equ     0ch              ; light pulse 700 us
+  0000000A          00031 IRDzero equ     0ah              ; "zero" 400 us
+  00000020          00032 IRDone  equ     20h              ; "one" 1500 us
+                    00033 
+                    00034 
+0000                00035         org     0
+                    00036 
+0000 018B           00037         clrf    intcon          ; disable interrupts
+0001 30F1           00038         movlw   LCD_MASK        ; setup port B outputs
+0002 0086           00039         movwf   lcd
+0003 0185           00040         clrf    porta           ; all outputs low in port A
+0004 1683           00041         bsf     status,rp0      ; open page 1
+0005 0181           00042         clrf    opt             ; clear option register
+0006 1781           00043         bsf     opt,7           ; disable pullup
+0007 300C           00044         movlw   0ch             ; set RA0, RA1 outputs, RA2, RA3 inputs
+0008 0085           00045         movwf   porta
+0009 3001           00046         movlw   001h            ; set port B as output
+000A 0086           00047         movwf   lcd             ; except for bit 0
+000B 1283           00048         bcf     status,rp0      ; open page 0
+000C 20D7           00049         call    initlcd         ; initialize LCD
+                    00050 
+000D 019F           00051         clrf    romptr          ; reset pointer to ROM
+000E 3020           00052         movlw   20h
+000F 0084           00053         movwf   fsr             ; setup RAM address pointer
+MPASM 02.15 Released             LCD6.ASM   6-15-1998  18:07:31         PAGE  2
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0010 3083           00054         movlw   083h             ; initialize message codes to
+0011 0080           00055         movwf   ind0            ; c1 52 c0 3f
+0012 304A           00056         movlw   04ah
+0013 0A84           00057         incf    fsr,f
+0014 0080           00058         movwf   ind0
+0015 3003           00059         movlw   003h
+0016 0A84           00060         incf    fsr,f
+0017 0080           00061         movwf   ind0
+0018 30FC           00062         movlw   0fch
+0019 0A84           00063         incf    fsr,f
+001A 0080           00064         movwf   ind0
+001B 2067           00065         call    RomPrt
+                    00066 
+001C 2078           00067 main    call    rdkbd           ; read keyboard
+001D 0091           00068         movwf   rh
+001E 20F7           00069         call    LcdHome
+001F 0811           00070         movf    rh,W
+0020 2025           00071         call    exec            ; execute code for key pressed
+0021 30FF           00072         movlw   delay2          ; wait a while...
+0022 2071           00073         call    wait
+0023 2071           00074         call    wait
+0024 281C           00075         goto    main            ; and start over
+                    00076 
+                    00077 ;
+                    00078 ; **************************************************************************
+                    00079 ; call code pointed to by W
+                    00080 ; **************************************************************************
+0025 390F           00081 exec    andlw   0fh     ; strip high nybble
+0026 0782           00082         addwf   pcl,f   ; jump to table entry
+0027 2857           00083         goto    ret     ; 0
+0028 2857           00084         goto    ret     ; 1
+0029 2837           00085         goto    IRSend  ; 2 send IR command
+002A 2857           00086         goto    ret     ; 3
+002B 2860           00087         goto    RomDec  ; 4 decrement rom address
+002C 2857           00088         goto    ret     ; 5
+002D 2857           00089         goto    ret     ; 6
+002E 2857           00090         goto    ret     ; 7
+002F 2864           00091         goto    RomInc  ; 8 incerment ROM address
+0030 2857           00092         goto    ret     ; 9
+0031 2857           00093         goto    ret     ; a
+0032 2857           00094         goto    ret     ; b
+0033 2857           00095         goto    ret     ; c
+0034 2857           00096         goto    ret     ; d
+0035 2857           00097         goto    ret     ; e
+0036 2857           00098         goto    ret     ; f
+                    00099 
+0037 3020           00100 IRSend  movlw   20h
+0038 0084           00101         movwf   fsr             ; setup RAM address pointer
+0039 1485           00102 IRSync  bsf     porta,1         ; enable IR transmitter
+003A 30B8           00103         movlw   IRSlong         ; Sync long pulse
+003B 2058           00104         call    IRwait
+003C 1085           00105         bcf     porta,1         ; disable transmitter
+003D 3058           00106         movlw   IRSshor         ; Sync short pulse
+MPASM 02.15 Released             LCD6.ASM   6-15-1998  18:07:31         PAGE  3
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+003E 2058           00107         call    IRwait
+003F 3004           00108 IRData  movlw   4               ; number of bytes to be sent
+0040 0091           00109         movwf   rh
+0041 3008           00110 IRD2    movlw   8               ; number of bits in a byte
+0042 0090           00111         movwf   rg
+0043 0800           00112         movf    ind0,W
+0044 008F           00113         movwf   rf
+0045 1485           00114 IRD1    bsf     porta,1         ; turn on LED
+0046 300C           00115         movlw   IRDpuls         ; load pulse length
+0047 2058           00116         call    IRwait          ; wait
+0048 300A           00117         movlw   IRDzero         ; load delay length for zero
+0049 180F           00118         btfsc   rf,0            ; if bit 0 of byte pointed to by fsr
+004A 3020           00119         movlw   IRDone          ; is set, then use delay for "one"
+004B 1085           00120         bcf     porta,1         ; turn off LED
+004C 2058           00121         call    IRwait
+004D 0C8F           00122         rrf     rf,f            ; prepare next bit
+004E 0B90           00123         decfsz  rg,f            ; decrement counter
+004F 2845           00124         goto    IRD1            ; close inner loop
+0050 0A84           00125         incf    fsr,f           ; point to next byte
+0051 0B91           00126         decfsz  rh,f            ; check if this was last byte
+0052 2841           00127         goto    IRD2            ; no, continue loop
+0053 1485           00128         bsf     porta,1         ; turn on LED
+0054 300C           00129         movlw   IRDpuls         ; load pulse length
+0055 2058           00130         call    IRwait          ; wait
+0056 1085           00131         bcf     porta,1         ; turn off LED
+                    00132 
+0057 0008           00133 ret     return                  ; you're done
+                    00134 
+0058 008D           00135 IRwait  movwf   rd              ; 1                     1 |
+0059                00136 IRw1    
+0059 3010           00137         movlw   10h             ; 1                     1 |
+005A 008E           00138         movwf   re              ; 1                     1 |
+005B 0B8E           00139 IRw2    decfsz  re,f            ; 1/2   |              50 |
+005C 285B           00140         goto    IRw2            ; 2     | 16*3=48+2=50    |60*W
+005D 0B8D           00141         decfsz  rd,f            ; 1/2                 1/2 |
+005E 2859           00142         goto    IRw1            ; 2                     2 |
+005F 0008           00143         return                  ; 2                     2 |
+                    00144 
+0060 03A2           00145 RomDec  decf    IRcode,f        ; decrement code to be sent
+0061 0922           00146         comf    IRcode,W
+0062 00A3           00147         movwf   IRcode+1
+0063 2867           00148         goto    RomPrt
+                    00149 
+0064 0AA2           00150 RomInc  incf    IRcode,f        ; increment code to be sent
+0065 0922           00151         comf    IRcode,W
+0066 00A3           00152         movwf   IRcode+1
+0067 3020           00153 RomPrt  movlw   20h
+0068 0084           00154         movwf   fsr             ; setup RAM address pointer
+0069 2085           00155         call    hexpr           ; print first byte
+006A 0A84           00156         incf    fsr,f
+006B 2085           00157         call    hexpr           ; print second byte
+006C 0A84           00158         incf    fsr,f
+006D 2085           00159         call    hexpr           ; print third byte
+MPASM 02.15 Released             LCD6.ASM   6-15-1998  18:07:31         PAGE  4
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+006E 0A84           00160         incf    fsr,f
+006F 2085           00161         call    hexpr           ; print fourth byte
+0070 0008           00162         return
+                    00163 ;
+                    00164 ; **************************************************************************
+                    00165 ; wait for a period specified in W
+                    00166 ; **************************************************************************
+0071 008D           00167 wait    movwf   rd      ; initialize delay counter
+0072 018E           00168 wait1   clrf    re      ; reset register E, ? cycle
+0073 0B8E           00169 wait2   decfsz  re,f    ; 1+1 cycle
+0074 2873           00170         goto    wait2   ; 1 cycles
+                    00171                         ; total of 2 cycles executed 256 times + 1=513 cycles
+0075 0B8D           00172         decfsz  rd,f    ; 1+1 cycle
+0076 2872           00173         goto    wait1   ; 1 cycles
+                    00174                         ; 516 cycles each pass * 1us(@ 4.00MHz)=0.516ms
+0077 0008           00175         return
+                    00176 
+                    00177 ;
+                    00178 ; **************************************************************************
+                    00179 ; Read keyboard, return result in W
+                    00180 ; **************************************************************************
+0078 1683           00181 rdkbd   bsf     status,rp0      ; open page 1
+0079 30F1           00182         movlw   0f1h            ; enable keyboard input
+007A 0086           00183         movwf   lcd
+007B 1283           00184         bcf     status,rp0      ; open page 0
+007C 0E06           00185         swapf   lcd,w           ; read keyboard
+007D 008C           00186         movwf   rc              ; store result for a while
+007E 1683           00187         bsf     status,rp0      ; open page 1
+007F 3001           00188         movlw   001h            ; set port B as output
+0080 0086           00189         movwf   lcd             ; except for bit 0
+0081 1283           00190         bcf     status,rp0      ; open page 0
+0082 090C           00191         comf    rc,w            ; store result in W
+0083 390F           00192         andlw   0fh             ; clear high nybble
+0084 0008           00193         return
+                    00194 
+0085 0E00           00195 hexpr   swapf   ind0,W          ; fetch data from fsr->
+0086 208D           00196         call    tohex
+0087 2105           00197         call    WrLcdData       ; print result
+0088 0800           00198         movf    ind0,W
+0089 208D           00199         call    tohex
+008A 2105           00200         call    WrLcdData       ; print result
+008B 3020           00201         movlw   20h             ; print space
+008C 2105           00202         call    WrLcdData       ; print result
+                    00203 
+                    00204 ;
+                    00205 ; **************************************************************************
+                    00206 ; convert contents of low nybble in W to HEX, return ASCII code
+                    00207 ; **************************************************************************
+008D 390F           00208 tohex   andlw   0fh     ; strip high nybble
+008E 0782           00209         addwf   pcl,f   ; jump to table entry
+008F 3430           00210         retlw   '0'
+0090 3431           00211         retlw   '1'
+0091 3432           00212         retlw   '2'
+MPASM 02.15 Released             LCD6.ASM   6-15-1998  18:07:31         PAGE  5
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0092 3433           00213         retlw   '3'
+0093 3434           00214         retlw   '4'
+0094 3435           00215         retlw   '5'
+0095 3436           00216         retlw   '6'
+0096 3437           00217         retlw   '7'
+0097 3438           00218         retlw   '8'
+0098 3439           00219         retlw   '9'
+0099 3461           00220         retlw   'a'
+009A 3462           00221         retlw   'b'
+009B 3463           00222         retlw   'c'
+009C 3464           00223         retlw   'd'
+009D 3465           00224         retlw   'e'
+009E 3466           00225         retlw   'f'
+                    00226 
+                    00227 
+                    00228 ;
+                    00229 ; **************************************************************************
+                    00230 ; read word from serial EEPROM and place in location pointed to by fsr
+                    00231 ; at EpromRD entry data address is stored there
+                    00232 ; at EpromRD1 entry data address is in W
+                    00233 ; **************************************************************************
+009F                00234 EpromRD1
+009F 0080           00235         movwf   ind0            ; store W in ind0
+00A0 0186           00236 EpromRD clrf    lcd             ; set all outputs low
+00A1 1683           00237         bsf     status,rp0      ; open page 1
+00A2 1006           00238         bcf     lcd,0           ; set RB0 to output
+00A3 1283           00239         bcf     status,rp0      ; open page 0
+00A4 1786           00240         bsf     lcd,ROM_DTA     ; set DI high
+00A5 1406           00241         bsf     lcd,ROM_CS      ; set CS high
+00A6 20D4           00242         call    tick1
+00A7 20D4           00243         call    tick1
+00A8 1386           00244         bcf     lcd,ROM_DTA     ; clear data bit
+00A9 20D4           00245         call    tick1           ; READ opcode clocked in, now address
+00AA 3006           00246         movlw   006h            ; number of bits in address
+00AB 008C           00247         movwf   rc              ; setup counter
+00AC 1386           00248 erd1    bcf     lcd,ROM_DTA     ; begin with address bit = 0
+00AD 1A80           00249         btfsc   ind0,5          ; check if address bit is high
+00AE 1786           00250         bsf     lcd,ROM_DTA     ; set data line high if so
+00AF 0D80           00251         rlf     ind0,f          ; prepare next bit in address
+00B0 20D4           00252         call    tick1           ; clock in data bit
+00B1 0B8C           00253         decfsz  rc,f            ; decrement counter
+00B2 28AC           00254         goto    erd1            ; continue loop
+00B3 1386           00255         bcf     lcd,ROM_DTA     ; address clocked in, now read data
+00B4 1506           00256         bsf     lcd,ROM_CLK
+00B5 1683           00257         bsf     status,rp0      ; open page 1
+00B6 1786           00258         bsf     lcd,ROM_DTA     ; set RB7 to input
+00B7 1283           00259         bcf     status,rp0      ; open page 0
+00B8 0A84           00260         incf    fsr,f           ; read high byte first
+00B9 3008           00261         movlw   008h            ; count data read
+00BA 008C           00262         movwf   rc
+00BB 0D80           00263 erd2    rlf     ind0,f          ; prepare ind0 for next bit
+00BC 1000           00264         bcf     ind0,0          ; let's clear data bit for starters
+00BD 1B86           00265         btfsc   lcd,ROM_DTA     ; and skip next line if data =0
+MPASM 02.15 Released             LCD6.ASM   6-15-1998  18:07:31         PAGE  6
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+00BE 1400           00266         bsf     ind0,0          ; but if it is 1, let's correct ind0
+00BF 1106           00267         bcf     lcd,ROM_CLK     ; send clock pulse
+00C0 1506           00268         bsf     lcd,ROM_CLK
+00C1 0B8C           00269         decfsz  rc,f            ; decrement counter and see if we're done
+00C2 28BB           00270         goto    erd2            ; no, continue
+00C3 0384           00271         decf    fsr,f           ; now read low byte
+00C4 3008           00272         movlw   008h            ; count data read
+00C5 008C           00273         movwf   rc
+00C6 0D80           00274 erd3    rlf     ind0,f          ; prepare ind0 for next bit
+00C7 1000           00275         bcf     ind0,0          ; let's clear data bit for starters
+00C8 1B86           00276         btfsc   lcd,ROM_DTA     ; and skip next line if data =0
+00C9 1400           00277         bsf     ind0,0          ; but if it is 1, let's correct ind0
+00CA 1106           00278         bcf     lcd,ROM_CLK     ; send clock pulse
+00CB 1506           00279         bsf     lcd,ROM_CLK
+00CC 0B8C           00280         decfsz  rc,f            ; decrement counter and see if we're done
+00CD 28C6           00281         goto    erd3            ; no, continue
+00CE 0186           00282         clrf    lcd             ; clear all lines
+00CF 1683           00283         bsf     status,rp0      ; open page 1
+00D0 3001           00284         movlw   001h            ; set port B as output
+00D1 0086           00285         movwf   lcd             ; except for bit 0
+00D2 1283           00286         bcf     status,rp0      ; open page 0
+00D3 0008           00287         return                  ; done
+                    00288 
+                    00289 
+                    00290 ;
+                    00291 ; **************************************************************************
+                    00292 ; send clock pulse
+                    00293 ; **************************************************************************
+00D4 1506           00294 tick1   bsf     lcd,ROM_CLK     ; set clock high
+00D5 1106           00295         bcf     lcd,ROM_CLK     ; and reset
+00D6 0008           00296         return
+                    00297 
+                    00298 
+                    00299 ; **************************************************************************
+                    00300 ; init the lcd (this function is called once at startup to initialize the
+                    00301 ; LCD to the proper mode.  Be careful making any changes to the code in this
+                    00302 ; routine as the lcd is very fussy about it's initialization.
+                    00303 ; **************************************************************************
+00D7 30F1           00304 initlcd movlw   LCD_MASK
+00D8 0086           00305         movwf   lcd             ; init the lcd latch, all control
+                    00306                                 ; bits are set to 0
+00D9 3010           00307         movlw   delay1
+00DA 2071           00308         call    wait        ;wait in case the lcd is in power up
+                    00309 ;
+                    00310 ; the first 4 commands are nibbles only in the msn of the immediate bytes
+                    00311 ; first the lcd is put in 8 bit mode, and then into 4 bit mode
+                    00312 ; during the sending of the first 4 nibbles, a delay is placed after each one.
+                    00313 ; (you can't check the busy flag during this initial startup.)
+00DB 3030           00314        movlw   MODE_8_BIT       ;init 8 bit mode, for starters
+00DC 210C           00315        call    WrLcdNibble
+00DD 3010           00316        movlw   delay1
+00DE 2071           00317        call    wait
+00DF 3030           00318        movlw   MODE_8_BIT       ;init 8 bit mode, again
+MPASM 02.15 Released             LCD6.ASM   6-15-1998  18:07:31         PAGE  7
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+00E0 210C           00319        call    WrLcdNibble
+00E1 3010           00320        movlw   delay1
+00E2 2071           00321        call    wait
+00E3 3020           00322        movlw   MODE_4_BIT       ;now init 4 bit mode
+00E4 210C           00323        call    WrLcdNibble
+00E5 3010           00324        movlw   delay1
+00E6 2071           00325        call    wait
+                    00326 ;
+00E7 3020           00327        movlw   FUNCTION_MODE    ;setup 4bit mode, 5x7 char, 2 lines
+00E8 20FC           00328        call    WrLcdStatus
+00E9 300F           00329        movlw   DISP_MODE        ;set display mode
+00EA 20FC           00330        call    WrLcdStatus
+00EB 3001           00331        movlw   LCD_CLR          ;clear the lcd
+00EC 20FC           00332        call    WrLcdStatus
+00ED 3006           00333        movlw   LCD_SH_CRSR      ;set entry mode to shift cursor
+00EE 20FC           00334        call    WrLcdStatus
+00EF 0008           00335        return
+                    00336 ;
+                    00337 ; **************************************************************************
+                    00338 ; print null terminated string pointed to by fsr
+                    00339 ; **************************************************************************
+00F0 0800           00340 LcdOut1 movf    ind0,W          ; fetch data to be printed
+00F1 0A84           00341         incf    fsr,f           ; point to next char
+00F2 2105           00342         call    WrLcdData       ; output char in W
+00F3 0A80           00343 LcdOut  incf    ind0,f          ; test if this is NULL
+00F4 0B80           00344         decfsz  ind0,f
+00F5 28F0           00345         goto    LcdOut1         ; jump to output procedure if not
+00F6 0008           00346         return                  ; exit if it is
+                    00347 
+                    00348 ; **************************************************************************
+                    00349 ; send cursor home
+                    00350 ; **************************************************************************
+00F7                00351 LcdHome
+00F7 3002           00352         movlw   LCD_HOME        ; send cursor home
+00F8 28FC           00353         goto    WrLcdStatus
+                    00354 
+                    00355 ; **************************************************************************
+                    00356 ; clear the lcd
+                    00357 ; **************************************************************************
+00F9                00358 LcdClear
+00F9 3001           00359        movlw   LCD_CLR          ;clear lcd
+00FA 28FC           00360        goto    WrLcdStatus
+                    00361 
+                    00362 
+                    00363 ; **************************************************************************
+                    00364 ; move cursor as specified in W:
+                    00365 ; D3 D2
+                    00366 ; 0  0  shift cursor left
+                    00367 ; 0  1  shift cursor right
+                    00368 ; 1  0  shift display left
+                    00369 ; 1  1  shift display right
+                    00370 ; **************************************************************************
+00FB                00371 MoveCurs
+MPASM 02.15 Released             LCD6.ASM   6-15-1998  18:07:31         PAGE  8
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+00FB 38E7           00372         iorlw   LCD_MOVE_CURS
+                    00373 
+                    00374 
+                    00375 ; **************************************************************************
+                    00376 ; write lcd status byte, (first wait to see if lcd is ready for a command).
+                    00377 ; **************************************************************************
+00FC                00378 WrLcdStatus
+00FC 008C           00379         movwf   rc              ; store data for later
+00FD 2114           00380         call    WaitLcdRdy      ; wait until lcd is ready
+00FE 080C           00381         movf    rc,W            ; get data from scratch reg
+00FF 39F7           00382         andlw   LCD_DATA1       ; setup to write a command to the lcd
+0100 210C           00383         call    WrLcdNibble     ; write the nibble
+                    00384                                 ; now do lsn
+0101 0E0C           00385         swapf   rc,W            ; get char back and swap nybbles
+0102 39F7           00386         andlw   LCD_DATA1       ; setup to write a command to the lcd
+0103 210C           00387         call    WrLcdNibble     ; write the nibble
+0104 0008           00388         return
+                    00389 
+                    00390 ;
+                    00391 ; **************************************************************************
+                    00392 ; write lcd data byte, put ascii data to be written in the acc
+                    00393 ; **************************************************************************
+0105                00394 WrLcdData:
+0105 008C           00395         movwf   rc              ; save char in scratch register
+0106 2114           00396         call    WaitLcdRdy      ; check if lcd is ready
+0107 080C           00397         movf    rc,W            ; restore data from scratch register
+0108 3808           00398         iorlw   LCD_DATA        ; set write data bit
+0109 210C           00399         call    WrLcdNibble     ; write the nibble
+                    00400                                 ; now do lsn
+010A 0E0C           00401         swapf   rc,W            ; get char back and swap nybbles
+010B 3808           00402         iorlw   LCD_DATA        ; set write data bit
+                    00403 ;        call    WrLcdNibble     ; write the nibble
+                    00404 ;        return
+                    00405 
+                    00406 ;
+                    00407 ; **************************************************************************
+                    00408 ; write a nibble to the lcd, namely the msn
+                    00409 ; you must setup LCD_DATA, for either data(1) or command(0) before calling
+                    00410 ; also need the dptr set up to lcd_write before calling.
+                    00411 ; the nibble is in the msn of the accumulator, the lsn is for lcd control bits
+                    00412 ; **************************************************************************
+010C                00413 WrLcdNibble
+010C 39FB           00414         andlw   LCD_READ1       ; Set WRITE (W/R low)
+010D 39FD           00415         andlw   LCD_ENAB1       ; make sure that ENABLE is off
+010E 0086           00416         movwf   lcd             ; output data to lcd
+010F 3802           00417         iorlw   LCD_ENAB        ; enable lcd
+0110 0086           00418         movwf   lcd             ; output data to lcd
+0111 39FD           00419         andlw   LCD_ENAB1       ; disable lcd
+0112 0086           00420         movwf   lcd
+0113 0008           00421         return
+                    00422 
+                    00423 ; **************************************************************************
+                    00424 ; wait for the lcd to be ready. check the busy flag, and loop if busy
+MPASM 02.15 Released             LCD6.ASM   6-15-1998  18:07:31         PAGE  9
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                    00425 ; needs the dptr set to lcd_write before calling
+                    00426 ; **************************************************************************
+0114                00427 WaitLcdRdy
+0114 30F1           00428         movlw   LCD_MASK        ; make sure that data lines are high
+0115 0486           00429         iorwf   lcd,f
+0116 1683           00430         bsf     status,rp0      ; open page 1
+0117 0486           00431         iorwf   lcd,f           ; switch high nybble to inputs
+0118 1283           00432         bcf     status,rp0      ; open page 0
+0119 30F4           00433         movlw   LCD_READ        ; set LCD_READ bit
+011A 0086           00434         movwf   lcd             ; write it to the lcd latch
+011B 3802           00435         iorlw   LCD_ENAB        ; enable lcd
+011C 0086           00436         movwf   lcd             ; output data to lcd
+011D 1B86           00437 wlcd    btfsc   lcd,7           ; wait here till lcd not busy
+011E 291D           00438         goto    wlcd
+011F 39FD           00439 wlcd1   andlw   LCD_ENAB1       ; disable lcd
+0120 0086           00440         movwf   lcd
+0121 1683           00441         bsf     status,rp0      ; open page 1
+0122 3001           00442         movlw   001h            ; set port B as output
+0123 0086           00443         movwf   lcd             ; except for bit 0
+0124 1283           00444         bcf     status,rp0      ; open page 0
+0125 0008           00445         return
+                    00446 
+                    00447 ; Constants for LCD
+  000000E7          00448 LCD_MOVE_CURS  equ     0E7h  ; set acc.7 to send move command.
+  000000F1          00449 LCD_MASK       equ     0f1h  ; set high nybble to be inputs
+  00000002          00450 LCD_ENAB       equ     002h  ; lcd enable bit
+  000000FD          00451 LCD_ENAB1      equ     0fdh
+  000000F4          00452 LCD_READ       equ     0f4h  ; lcd read/write bit
+  000000FB          00453 LCD_READ1      equ     0fbh
+  00000008          00454 LCD_DATA       equ     008h  ; lcd data/status bit
+  000000F7          00455 LCD_DATA1      equ     0f7h
+  00000030          00456 MODE_8_BIT     equ     030h  ; set lcd for 8 bit mode
+  00000020          00457 MODE_4_BIT     equ     020h  ; set lcd for 4 bit mode
+  00000020          00458 FUNCTION_MODE  equ     020h  ; set lcd for 4 bit, 5x7, 1 line
+  0000000F          00459 DISP_MODE      equ     00Fh  ; set lcd for disp on, cursor on
+  0000001C          00460 SHIFT_DISP_R   equ     01ch  ; shift display right
+  00000018          00461 SHIFT_DISP_L   equ     018h  ; shift display left
+  00000014          00462 SHIFT_CRSR_R   equ     014h  ; shift cursor right
+  00000010          00463 SHIFT_CRSR_L   equ     010h  ; shift cursor left
+  00000007          00464 LCD_SH_DISP    equ     007h  ; display entry mode shift display
+  00000006          00465 LCD_SH_CRSR    equ     006h  ; display entry mode shift cursor
+  00000002          00466 LCD_HOME       equ     002h  ; move cursor home
+  00000001          00467 LCD_CLR        equ     001h  ; clear lcd
+  00000010          00468 delay1         equ     010h  ; LCD write delay
+  000000FF          00469 delay2         equ     0ffh  ; display delay
+                    00470 
+                    00471 ;
+                    00472 ; Port B bit assignment:
+                    00473 ;
+                    00474 ; 7 - DB7, LCD status
+                    00475 ; 6 - DB6
+                    00476 ; 5 - DB5
+                    00477 ; 4 - DB4
+MPASM 02.15 Released             LCD6.ASM   6-15-1998  18:07:31         PAGE 10
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                    00478 ; 3 - RS register select
+                    00479 ; 2 - R/W read / write
+                    00480 ; 1 - E enable
+                    00481 ; 0 - EEPROM enable
+                    00482 ;
+                    00483 
+                    00484         end
+MPASM 02.15 Released             LCD6.ASM   6-15-1998  18:07:31         PAGE 11
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+DISP_MODE                         0000000F
+EpromRD                           000000A0
+EpromRD1                          0000009F
+FUNCTION_MODE                     00000020
+IRD1                              00000045
+IRD2                              00000041
+IRData                            0000003F
+IRDone                            00000020
+IRDpuls                           0000000C
+IRDzero                           0000000A
+IRSend                            00000037
+IRSlong                           000000B8
+IRSshor                           00000058
+IRSync                            00000039
+IRcode                            00000022
+IRw1                              00000059
+IRw2                              0000005B
+IRwait                            00000058
+LCD_CLR                           00000001
+LCD_DATA                          00000008
+LCD_DATA1                         000000F7
+LCD_ENAB                          00000002
+LCD_ENAB1                         000000FD
+LCD_HOME                          00000002
+LCD_MASK                          000000F1
+LCD_MOVE_CURS                     000000E7
+LCD_READ                          000000F4
+LCD_READ1                         000000FB
+LCD_SH_CRSR                       00000006
+LCD_SH_DISP                       00000007
+LcdClear                          000000F9
+LcdHome                           000000F7
+LcdOut                            000000F3
+LcdOut1                           000000F0
+MODE_4_BIT                        00000020
+MODE_8_BIT                        00000030
+MoveCurs                          000000FB
+ROM_CLK                           00000002
+ROM_CS                            00000000
+ROM_DTA                           00000007
+RomDec                            00000060
+RomInc                            00000064
+RomPrt                            00000067
+SHIFT_CRSR_L                      00000010
+SHIFT_CRSR_R                      00000014
+SHIFT_DISP_L                      00000018
+SHIFT_DISP_R                      0000001C
+W                                 00000000
+WaitLcdRdy                        00000114
+WrLcdData                         00000105
+WrLcdNibble                       0000010C
+WrLcdStatus                       000000FC
+__16C84                           00000001
+MPASM 02.15 Released             LCD6.ASM   6-15-1998  18:07:31         PAGE 12
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+delay1                            00000010
+delay2                            000000FF
+erd1                              000000AC
+erd2                              000000BB
+erd3                              000000C6
+exec                              00000025
+f                                 00000001
+fsr                               00000004
+hexpr                             00000085
+ind0                              00000000
+initlcd                           000000D7
+intcon                            0000000B
+lcd                               00000006
+main                              0000001C
+opt                               00000001
+pcl                               00000002
+porta                             00000005
+rc                                0000000C
+rd                                0000000D
+rdkbd                             00000078
+re                                0000000E
+ret                               00000057
+rf                                0000000F
+rg                                00000010
+rh                                00000011
+romptr                            0000001F
+rp0                               00000005
+status                            00000003
+tick1                             000000D4
+tohex                             0000008D
+wait                              00000071
+wait1                             00000072
+wait2                             00000073
+wlcd                              0000011D
+wlcd1                             0000011F
+
+
+MEMORY USAGE MAP ('X' = Used,  '-' = Unused)
+
+0000 : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
+0040 : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
+0080 : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
+00C0 : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
+0100 : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXX---------- ----------------
+
+All other memory blocks unused.
+
+Program Memory Words Used:   294
+Program Memory Words Free:   730
+
+
+MPASM 02.15 Released             LCD6.ASM   6-15-1998  18:07:31         PAGE 13
+
+
+
+
+
+Errors   :     0
+Warnings :     0 reported,     0 suppressed
+Messages :     0 reported,     0 suppressed
+
+
